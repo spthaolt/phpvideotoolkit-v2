@@ -5,20 +5,18 @@
      *
      * @author Oliver Lillie (aka buggedcom) <publicmail@buggedcom.co.uk>
      * @license Dual licensed under MIT and GPLv2
-     * @copyright Copyright (c) 2008-2013 Oliver Lillie <http://www.buggedcom.co.uk>
+     * @copyright Copyright (c) 2008-2014 Oliver Lillie <http://www.buggedcom.co.uk>
      * @package PHPVideoToolkit V2
-     * @version 2.0.0.a
+     * @version 2.1.7-beta
      * @uses ffmpeg http://ffmpeg.sourceforge.net/
      */
      
-     namespace PHPVideoToolkit;
+    namespace PHPVideoToolkit;
      
     /**
-     * undocumented class
+     * Abstract class based upon Parser to server as a base class for creating FFmpeg parser classes from differing sources.
      *
-     * @access public
      * @author Oliver Lillie
-     * @package default
      */
     abstract class FfmpegParserAbstract extends Parser
     {
@@ -27,8 +25,9 @@
          *
          * @access public
          * @author Oliver Lillie
-         * @param boolean $read_from_cache 
-         * @return string
+         * @param boolean $read_from_cache If true and the data exists within a cache then that data is used. If false
+         *  then the data is re-read from ffmpeg.
+         * @return string Returns the raw buffer data from ffmpeg.
          */
         abstract function getRawCodecData($read_from_cache=true);
         
@@ -37,8 +36,9 @@
          *
          * @access public
          * @author Oliver Lillie
-         * @param boolean $read_from_cache 
-         * @return string
+         * @param boolean $read_from_cache If true and the data exists within a cache then that data is used. If false
+         *  then the data is re-read from ffmpeg.
+         * @return string Returns the raw buffer data from ffmpeg.
          */
         abstract function getRawBitstreamFiltersData($read_from_cache=true);
         
@@ -47,8 +47,9 @@
          *
          * @access public
          * @author Oliver Lillie
-         * @param boolean $read_from_cache 
-         * @return string
+         * @param boolean $read_from_cache If true and the data exists within a cache then that data is used. If false
+         *  then the data is re-read from ffmpeg.
+         * @return string Returns the raw buffer data from ffmpeg.
          */
         abstract function getRawFiltersData($read_from_cache=true);
         
@@ -57,8 +58,9 @@
          *
          * @access public
          * @author Oliver Lillie
-         * @param boolean $read_from_cache 
-         * @return string
+         * @param boolean $read_from_cache If true and the data exists within a cache then that data is used. If false
+         *  then the data is re-read from ffmpeg.
+         * @return string Returns the raw buffer data from ffmpeg.
          */
         abstract function getRawProtocolsData($read_from_cache=true);
         
@@ -67,8 +69,10 @@
          *
          * @access public
          * @author Oliver Lillie
-         * @param boolean $read_from_cache 
-         * @return string
+         * @param boolean $read_from_cache If true and the data exists within a cache then that data is used. If false
+         *  then the data is re-read from ffmpeg.
+         * @return string Returns the raw buffer data from ffmpeg.
+         * @throws PHPVideoToolkit\FfmpegProcessException If the call to ffmpeg encounters an error.
          */
         public function getRawPixelFormatsData($read_from_cache=true)
         {
@@ -99,8 +103,10 @@
          *
          * @access public
          * @author Oliver Lillie
-         * @param boolean $read_from_cache 
-         * @return string
+         * @param boolean $read_from_cache If true and the data exists within a cache then that data is used. If false
+         *  then the data is re-read from ffmpeg.
+         * @return string Returns the raw buffer data from ffmpeg.
+         * @throws PHPVideoToolkit\FfmpegProcessException If the call to ffmpeg encounters an error.
          */
         public function getRawCommandsData($read_from_cache=true)
         {
@@ -130,8 +136,9 @@
          *
          * @access public
          * @author Oliver Lillie
-         * @param boolean $read_from_cache 
-         * @return array
+         * @param boolean $read_from_cache If true and the data exists within a cache then that data is used. If false
+         *  then the data is re-read from ffmpeg.
+         * @return array Returns an array of data about the current ffmpeg binary.
          */
         public function getFfmpegData($read_from_cache=true)
         {
@@ -146,6 +153,8 @@
             
 //          then match out the relevant data, clean and process.
             $data = array(
+                'from-cache' => true,
+                'read-at' => time(),
                 'binary' => array(
                     'configuration' => array(),
                     'vhook-support' => false,
@@ -169,6 +178,8 @@
             }
             
             $this->_cacheSet($cache_key, $data);
+
+            $data['from-cache'] = false;
             return $data;
         }
         
@@ -177,8 +188,12 @@
          *
          * @access public
          * @author Jorrit Schippers
-         * @param boolean $read_from_cache 
-         * @return void
+         * @param boolean $read_from_cache If true and the data exists within a cache then that data is used. If false
+         *  then the data is re-read from ffmpeg.
+         * @return array Returns an array with the following keys; build, version. Note, depending on your version of ffmpeg
+         *  either one or both of these keys will container values.
+         * @throws PHPVideoToolkit\FfmpegProcessException If a version is not found in the basic information then we call ffmpeg -version
+         *  to get the version information. If that call encounters an error this exception is thrown.
          */
         public function getVersion($read_from_cache=true)
         {
@@ -240,6 +255,12 @@
                 $version = $matches[1];
             }
             
+//          avconv version 0.8.9-4:0.8.9-0ubuntu0.12.04.1, Copyright (c) 2000-2013 the Libav developers built on Nov 9 2013 19:08:00 with gcc 4.6.3
+            if($version === null && preg_match('/avconv version\s+([^:]+):/msUi', $raw_data, $matches) > 0)
+            {
+                $version = $matches[1];
+            }
+
 //          get the version from -version
             if($version === null)
             {
@@ -267,7 +288,7 @@
 //          if both version and build are not available throw a new exception to get the user to provide their ffmpeg data to github so we can start building up different formats of ffmpeg output.
             if($version === null && $build === null)
             {
-                throw new Exception('Unable to determine your FFmpeg version or build. Please create an issue at the github repository for PHPVideoToolkit 2; https://github.com/buggedcom/phpvideotoolkit-v2/issues. Please add the following data to the ticket:<br />
+                throw new FfmpegProcessException('Unable to determine your FFmpeg version or build. Please create an issue at the github repository for PHPVideoToolkit 2; https://github.com/buggedcom/phpvideotoolkit-v2/issues. Please add the following data to the ticket:<br />
 <br />              
 <code>'.$this->getRawFfmpegData($read_from_cache).'</code>');
             }
@@ -275,8 +296,13 @@
             $data = array(
                 'build' => $build,
                 'version' => $version, 
+                'from-cache' => true,
+                'read-at' => time(),
             );
+
             $this->_cacheSet($cache_key, $data);
+
+            $data['from-cache'] = false;
             return $data;
         }
         
@@ -285,8 +311,9 @@
          *
          * @access public
          * @author Oliver Lillie
-         * @param boolean $read_from_cache 
-         * @return array
+         * @param boolean $read_from_cache If true and the data exists within a cache then that data is used. If false
+         *  then the data is re-read from ffmpeg.
+         * @return array Returns all the information available about ffmpeg in a single array.
          */
         public function getInformation($read_from_cache=true)
         {
@@ -351,12 +378,13 @@
         }
         
         /**
-         * Returns the available formats in their processed easy to use format.
+         * Returns the available formats in a processed easy to use format.
          *
          * @access public
          * @author Oliver Lillie
-         * @param boolean $read_from_cache 
-         * @return array
+         * @param boolean $read_from_cache If true and the data exists within a cache then that data is used. If false
+         *  then the data is re-read from ffmpeg.
+         * @return array Returns an array of formats and related information about each format.
          */
         public function getFormats($read_from_cache=true)
         {
@@ -399,14 +427,16 @@
          * @param mixed $component If not set or set to null then all the audio, video and subtitle codecs
          *  are returned, otherwise if set to 'audio', 'video', or 'subtitle' then just the related data
          *  is returned.
-         * @param boolean $read_from_cache 
-         * @return array
+         * @param boolean $read_from_cache If true and the data exists within a cache then that data is used. If false
+         *  then the data is re-read from ffmpeg.
+         * @return array Returns an array of formats and related information about each codec.
+         * @throws \InvalidArgumentException If the $component argument is invalid.
          */
         public function getCodecs($component=null, $read_from_cache=true)
         {
             if(in_array($component, array('video', 'audio', 'subtitle', null)) === false)
             {
-                throw new Exception('Unrecognised codec component specified.');
+                throw new \InvalidArgumentException('Unrecognised codec component specified.');
             }
             
             $cache_key = 'ffmpeg_parser/parsed_codecs';
@@ -484,11 +514,6 @@
 //          are we to only return a specific component of the data?
             if($component !== null)
             {
-                if(isset($data[$component]) === false)
-                {
-                    throw new Exception('Unrecognised component "'.$component.'" specified in \\PHPVideoToolkit\\FfmpegParserAbstract::getCodecData');
-                }
-                
                 return $data[$component];
             }
             
@@ -500,8 +525,9 @@
          *
          * @access public
          * @author Oliver Lillie
-         * @param boolean $read_from_cache 
-         * @return array
+         * @param boolean $read_from_cache If true and the data exists within a cache then that data is used. If false
+         *  then the data is re-read from ffmpeg.
+         * @return array Returns an array of bitstream filter strings.
          */
         public function getBitstreamFilters($read_from_cache=true)
         {
@@ -538,8 +564,11 @@
          * @author Oliver Lillie
          * @param boolean $just_filter_names If true then just the list of available filters will be returned.
          *  otherwise all the available data will be returned.
-         * @param boolean $read_from_cache 
-         * @return array
+         * @param boolean $read_from_cache If true and the data exists within a cache then that data is used. If false
+         *  then the data is re-read from ffmpeg.
+         * @return array Returns an array of available filters. If $just_filter_names is true, then just the filter names
+         *  are returned, otherwise the array is returned with the filter names as the key and the value as another array containing
+         *  information about the filter.
          */
         public function getFilters($just_filter_names=true, $read_from_cache=true)
         {
@@ -590,8 +619,9 @@
          *
          * @access public
          * @author Oliver Lillie
-         * @param boolean $read_from_cache 
-         * @return array
+         * @param boolean $read_from_cache If true and the data exists within a cache then that data is used. If false
+         *  then the data is re-read from ffmpeg.
+         * @return array Returns an array of available protocols and whether or not they are input or ouput protocols.
          */
         public function getProtocols($read_from_cache=true)
         {
@@ -682,8 +712,9 @@
          *
          * @access public
          * @author Oliver Lillie
-         * @param boolean $read_from_cache 
-         * @return array
+         * @param boolean $read_from_cache If true and the data exists within a cache then that data is used. If false
+         *  then the data is re-read from ffmpeg.
+         * @return array Returns an array of information about the available pixel formats.
          */
         public function getPixelFormats($read_from_cache=true)
         {
@@ -761,8 +792,9 @@
          *
          * @access public
          * @author Oliver Lillie
-         * @param boolean $read_from_cache 
-         * @return array
+         * @param boolean $read_from_cache If true and the data exists within a cache then that data is used. If false
+         *  then the data is re-read from ffmpeg.
+         * @return array Returns the list of commands the ffmpeg can support.
          */
         public function getCommands($read_from_cache=true)
         {

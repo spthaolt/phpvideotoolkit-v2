@@ -5,9 +5,9 @@
 	 *
 	 * @author Oliver Lillie (aka buggedcom) <publicmail@buggedcom.co.uk>
 	 * @license Dual licensed under MIT and GPLv2
-	 * @copyright Copyright (c) 2008-2013 Oliver Lillie <http://www.buggedcom.co.uk>
+	 * @copyright Copyright (c) 2008-2014 Oliver Lillie <http://www.buggedcom.co.uk>
 	 * @package PHPVideoToolkit V2
-	 * @version 2.0.0.a
+	 * @version 2.1.7-beta
 	 * @uses ffmpeg http://ffmpeg.sourceforge.net/
 	 */
 	 
@@ -20,14 +20,14 @@
 	 */
 	class ImageFormat_Jpeg extends ImageFormat
 	{
-		public function __construct($input_output_type, Config $config=null)
+		public function __construct($input_output_type=Format::OUTPUT, Config $config=null)
 		{
 			parent::__construct($input_output_type, $config);
 			
 			if($input_output_type === 'output')
 			{
 				$this->disableAudio()
-				 	 ->setVideoCodec('mjpeg')
+					 ->setVideoCodec('mjpeg')
 					 ->setFormat('image2');
 			}
 			

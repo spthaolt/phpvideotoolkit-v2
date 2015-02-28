@@ -5,9 +5,9 @@
      *
      * @author Oliver Lillie (aka buggedcom) <publicmail@buggedcom.co.uk>
      * @license Dual licensed under MIT and GPLv2
-     * @copyright Copyright (c) 2008-2013 Oliver Lillie <http://www.buggedcom.co.uk>
+     * @copyright Copyright (c) 2008-2014 Oliver Lillie <http://www.buggedcom.co.uk>
      * @package PHPVideoToolkit V2
-     * @version 2.0.0.a
+     * @version 2.1.7-beta
      * @uses ffmpeg http://ffmpeg.sourceforge.net/
      */
      
@@ -27,15 +27,15 @@
         {
             if(is_dir($temp_directory) === false)
             {
-                throw new Exception('The temp directory does not exist or is not a directory.');
+                throw new \InvalidArgumentException('The temp directory does not exist or is not a directory.');
             }
             else if(is_readable($temp_directory) === false)
             {
-                throw new Exception('The temp directory is not readable.');
+                throw new \InvalidArgumentException('The temp directory is not readable.');
             }
             else if(is_writable($temp_directory) === false)
             {
-                throw new Exception('The temp directory is not writeable.');
+                throw new \InvalidArgumentException('The temp directory is not writeable.');
             }
             $this->_temp_directory = $temp_directory;
             
@@ -64,7 +64,7 @@
                     {
                         if(is_file($file) === true)
                         {
-                         //   @unlink($file);
+                           @unlink($file);
                         }
                     }
                 }

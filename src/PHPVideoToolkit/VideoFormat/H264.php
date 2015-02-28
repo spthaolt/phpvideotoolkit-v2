@@ -5,13 +5,13 @@
      *
      * @author Oliver Lillie (aka buggedcom) <publicmail@buggedcom.co.uk>
      * @license Dual licensed under MIT and GPLv2
-     * @copyright Copyright (c) 2008-2013 Oliver Lillie <http://www.buggedcom.co.uk>
+     * @copyright Copyright (c) 2008-2014 Oliver Lillie <http://www.buggedcom.co.uk>
      * @package PHPVideoToolkit V2
-     * @version 2.0.0.a
+     * @version 2.1.7-beta
      * @uses ffmpeg http://ffmpeg.sourceforge.net/
      */
      
-     namespace PHPVideoToolkit;
+    namespace PHPVideoToolkit;
 
     /**
      * @access public
@@ -22,7 +22,7 @@
     {
         protected $_restricted_video_presets;
         
-        public function __construct($input_output_type, Config $config=null)
+        public function __construct($input_output_type=Format::OUTPUT, Config $config=null)
         {
             parent::__construct($input_output_type, $config);
             
@@ -30,11 +30,13 @@
                 'h264_preset' => null,
                 'h264_tune' => null,
                 'h264_constant_quantization' => null,
+                'h264_profile' => null
             ));
             $this->_format_to_command = array_merge($this->_format_to_command, array(
                 'h264_preset' => '-preset <setting>',
                 'h264_tune' => '-tune <setting>',
                 'h264_constant_quantization' => '-qp <setting>',
+                'h264_profile' => '-profile:v <setting>'
             ));
             
             $this->_restricted_video_presets = null;
@@ -45,10 +47,6 @@
                      ->setVideoCodec('h264')
                      ->setFormat('h264');
             }
-            
-//          both enable meta data injection and then force 
-            $this->forceQtFastStartSuccess();
-            $this->enableQtFastStart();
         }
         
         public function setH264Preset($preset=null)
@@ -63,7 +61,7 @@
             
             if(in_array($preset, array('ultrafast', 'superfast', 'veryfast', 'faster', 'fast', 'medium', 'slow', 'slower', 'veryslow', 'placebo')) === false)
             {
-                throw new Exception('Unrecognised h264 preset "'.$preset.'" set in \\PHPVideoToolkit\\'.get_class($this).'::setH264Preset');
+                throw new \InvalidArgumentException('Unrecognised h264 preset "'.$preset.'" set in \\PHPVideoToolkit\\'.get_class($this).'::setH264Preset');
             }
             
             $this->_format['h264_preset'] = $preset;
@@ -82,10 +80,29 @@
             
             if(in_array($tune, array('film', 'animation', 'grain', 'stillimage', 'psnr', 'ssim', 'fastdecode', 'zerolatency')) === false)
             {
-                throw new Exception('Unrecognised h264 preset "'.$preset.'" set in \\PHPVideoToolkit\\'.get_class($this).'::setH264Tune');
+                throw new \InvalidArgumentException('Unrecognised h264 tune "'.$preset.'" set in \\PHPVideoToolkit\\'.get_class($this).'::setH264Tune');
             }
             
             $this->_format['h264_tune'] = $tune;
+            return $this;
+        }
+        
+        public function setH264Profile($profile=null)
+        {
+            $this->_blockSetOnInputFormat('h264 profile');
+            
+            if($profile === null)
+            {
+                $this->_format['h264_profile'] = null;
+                return $this;
+            }
+            
+            if(in_array($profile, array('baseline', 'main', 'high', 'high10', 'high422', 'high444')) === false)
+            {
+                throw new Exception('Unrecognised h264 profile "'.$profile.'" set in \\PHPVideoToolkit\\'.get_class($this).'::setH264Profile');
+            }
+            
+            $this->_format['h264_profile'] = $profile;
             return $this;
         }
         

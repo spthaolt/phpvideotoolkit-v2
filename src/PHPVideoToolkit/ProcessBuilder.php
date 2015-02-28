@@ -5,9 +5,9 @@
      *
      * @author Oliver Lillie (aka buggedcom) <publicmail@buggedcom.co.uk>
      * @license Dual licensed under MIT and GPLv2
-     * @copyright Copyright (c) 2008-2013 Oliver Lillie <http://www.buggedcom.co.uk>
+     * @copyright Copyright (c) 2008-2014 Oliver Lillie <http://www.buggedcom.co.uk>
      * @package PHPVideoToolkit V2
-     * @version 2.0.0.a
+     * @version 2.1.7-beta
      * @uses ffmpeg http://ffmpeg.sourceforge.net/
      */
      
@@ -45,7 +45,7 @@
             {
                 if($allow_command_repetition === false)
                 {
-                    throw new Exception('The command "'.$command.'" has already been given and it cannot be repeated. If you wish to allow a repeating command, set $allow_command_repetition to true.');
+                    throw new \LogicException('The command "'.$command.'" has already been given and it cannot be repeated. If you wish to allow a repeating command, set $allow_command_repetition to true.');
                 }
                 else if(is_array($add_to[$command]) === false)
                 {
@@ -60,11 +60,40 @@
             return $this;
         }
         
+        protected function _remove(&$remove_from, $command, $argument=null)
+        {
+            $argument = $argument === false ? false : $argument;
+            
+            if(isset($remove_from[$command]) === true)
+            {
+                if(is_array($remove_from[$command]) === false)
+                {
+                    foreach ($remove_from[$command] as $key => $value)
+                    {
+                        if($value === $argument)
+                        {
+                            unset($remove_from[$command][$key]);
+                            break;
+                        }
+                    }
+                    if(empty($remove_from[$command]) === true)
+                    {
+                        unset($remove_from[$command]);
+                    }
+                }
+                else
+                {
+                    unset($remove_from[$command]);
+                }
+            }
+            return $this;
+        }
+        
         public function addCommands(array $commands)
         {
             if(empty($commands) === true)
             {
-                throw new Exception('Commands cannot be empty.');
+                throw new \InvalidArgumentException('Commands cannot be empty.');
             }
             
             foreach ($commands as $key => $value)
@@ -80,7 +109,7 @@
                 else
                 {
                     $this->add($key);
-                    if($value)
+                    if(strlen($value) > 0)
                     {
                         $this->add($value);
                     }
@@ -88,9 +117,19 @@
             }
         }
         
-        public function add($command, $raw_flag=false)
+        public function add($command)
         {
             array_push($this->_arguments, $command);
+            
+            return $this;
+        }
+
+        public function remove($command)
+        {
+            $index = array_search($command, $this->_arguments);
+            if($index !== false){
+                unset($this->_arguments[$index]);
+            }
             
             return $this;
         }
@@ -138,7 +177,7 @@
          * @author Oliver Lillie
          * @return ExecBuffer
          */
-        public function getExecBuffer()
+        public function &getExecBuffer()
         {
             $exec = new ExecBuffer($this->getCommandString(), $this->_config->temp_directory, $this->_config->php_exec_infinite_timelimit);
             return $exec;

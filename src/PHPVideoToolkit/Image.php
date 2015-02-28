@@ -5,9 +5,9 @@
      *
      * @author Oliver Lillie (aka buggedcom) <publicmail@buggedcom.co.uk>
      * @license Dual licensed under MIT and GPLv2
-     * @copyright Copyright (c) 2008-2013 Oliver Lillie <http://www.buggedcom.co.uk>
+     * @copyright Copyright (c) 2008-2014 Oliver Lillie <http://www.buggedcom.co.uk>
      * @package PHPVideoToolkit V2
-     * @version 2.0.0.a
+     * @version 2.1.7-beta
      * @uses ffmpeg http://ffmpeg.sourceforge.net/
      */
      
@@ -32,21 +32,42 @@
 //          validate this media file is a image file
             if($ensure_image_file === true && $this->_validateMedia('image') === false)
             {
-                throw new Exception('You cannot use an instance of '.get_class($this).' for "'.$image_file_path.'" as the file is not a image file. It is reported to be a '.$type);
+                throw new \LogicException('You cannot use an instance of '.get_class($this).' for "'.$image_file_path.'" as the file is not a image file. It is reported to be a '.$type);
             }
         }
         
         /**
-         * Returns the default (empty) input format for the type of media object this class is.
+         * Returns a PHP GD resource of the image.
          *
-         * @access public
+         * @return GD resource
          * @author Oliver Lillie
-         * @param string $type Either input for an input format or output for an output format.
-         * @return Format
          */
-        public function getDefaultFormat($type, $format)
+        public function toGdImage()
         {
-            return $this->_getDefaultFormat($type, 'ImageFormat', $format);
+            return imagecreatefromstring($this->getMediaPath());
+        }
+        
+        /**
+         * Returns the binary data for the image.
+         *
+         * @return string
+         * @author Oliver Lillie
+         */
+        public function toBinaryData()
+        {
+            $gd = $this->toGdImage();
+            if($gd !== false)
+            {
+                ob_start();
+                imagegd2($gd);
+                return ob_get_clean();
+            }
+            return false;
+        }
+        
+        public function getDefaultFormatClassName()
+        {
+            return 'ImageFormat';
         }
         
         /**

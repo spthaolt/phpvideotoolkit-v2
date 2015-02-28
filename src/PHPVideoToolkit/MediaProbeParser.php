@@ -5,13 +5,13 @@
      *
      * @author Oliver Lillie (aka buggedcom) <publicmail@buggedcom.co.uk>
      * @license Dual licensed under MIT and GPLv2
-     * @copyright Copyright (c) 2008-2013 Oliver Lillie <http://www.buggedcom.co.uk>
+     * @copyright Copyright (c) 2008-2014 Oliver Lillie <http://www.buggedcom.co.uk>
      * @package PHPVideoToolkit V2
-     * @version 2.0.0.a
+     * @version 2.1.7-beta
      * @uses ffmpeg http://ffmpeg.sourceforge.net/
      */
      
-     namespace PHPVideoToolkit;
+    namespace PHPVideoToolkit;
 
     /**
      * This class provides generic data parsing for the output from FFmpeg from specific
@@ -49,6 +49,8 @@
             
 //          get the file data
             $data = array(
+                'from-cache'=> true,
+                'read-at'   => time(),
                 'path'      => $file_path,
                 'type'      => $this->getFileType($file_path, $read_from_cache),
                 'duration'  => $this->getFileDuration($file_path, $read_from_cache),
@@ -61,6 +63,8 @@
 
 //          cache info and return
             $this->_cacheSet($cache_key, $data);
+
+            $data['from-cache'] = false;
             return $data;
         }
         

@@ -1,5 +1,7 @@
 <?php
 
+    namespace PHPVideoToolkit;
+
     include_once './includes/bootstrap.php';
     
     ini_set('memory_limit', '1024M');
@@ -36,13 +38,18 @@
                 $config->convert = $convert;
                 $config->gif_transcoder = 'gifsicle';
             }
-        
-            $output_format = \PHPVideoToolkit\Format::getFormatFor($output_path, $config, 'ImageFormat');
+            else if($gif_transcoder === 'convert')
+            {
+                $config->convert = $convert;
+                $config->gif_transcoder = 'convert';
+            }
+
+            $output_format = Format::getFormatFor($output_path, $config, 'ImageFormat');
             $output_format->setVideoFrameRate(12);
         
-            $video = new \PHPVideoToolkit\Video($example_video_path, $config);
-            $output = $video->extractSegment(new \PHPVideoToolkit\Timecode(10), new \PHPVideoToolkit\Timecode(70))
-                            ->save($output_path, $output_format);
+            $video = new Video($example_video_path, $config);
+            $process = $video->extractSegment(new Timecode(10), new Timecode(30))
+                            ->save($output_path, $output_format, Media::OVERWRITE_EXISTING);
             
             $length = microtime_float()-$start;
             
@@ -53,24 +60,28 @@
         }
         
     }
-    catch(\PHPVideoToolkit\FfmpegProcessOutputException $e)
+    catch(FfmpegProcessOutputException $e)
     {
         echo '<h1>Error</h1>';
-        \PHPVideoToolkit\Trace::vars($e);
+        Trace::vars($e->getMessage());
+        echo '<h2>FfmpegProcessOutputException</h2>';
+        Trace::vars($e);
 
         $process = $video->getProcess();
         if($process->isCompleted())
         {
             echo '<hr /><h2>Executed Command</h2>';
-            \PHPVideoToolkit\Trace::vars($process->getExecutedCommand());
+            Trace::vars($process->getExecutedCommand());
             echo '<hr /><h2>FFmpeg Process Messages</h2>';
-            \PHPVideoToolkit\Trace::vars($process->getMessages());
+            Trace::vars($process->getMessages());
             echo '<hr /><h2>Buffer Output</h2>';
-            \PHPVideoToolkit\Trace::vars($process->getBuffer(true));
+            Trace::vars($process->getBuffer(true));
         }
     }
-    catch(\PHPVideoToolkit\Exception $e)
+    catch(Exception $e)
     {
         echo '<h1>Error</h1>';
-        \PHPVideoToolkit\Trace::vars($e);
+        Trace::vars($e->getMessage());
+        echo '<h2>Exception</h2>';
+        Trace::vars($e);
     }

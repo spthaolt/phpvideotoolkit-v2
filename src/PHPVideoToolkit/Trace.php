@@ -5,9 +5,9 @@
      *
      * @author Oliver Lillie (aka buggedcom) <publicmail@buggedcom.co.uk>
      * @license Dual licensed under MIT and GPLv2
-     * @copyright Copyright (c) 2008-2013 Oliver Lillie <http://www.buggedcom.co.uk>
+     * @copyright Copyright (c) 2008-2014 Oliver Lillie <http://www.buggedcom.co.uk>
      * @package PHPVideoToolkit V2
-     * @version 2.0.0.a
+     * @version 2.1.7-beta
      * @uses ffmpeg http://ffmpeg.sourceforge.net/
      */
      
@@ -57,7 +57,7 @@
             }
             
             $output .= '<pre style="text-transform:none;"><span id="'.self::$_trace_order.'-trace-hide" onclick="this.style.display=\'none\';document.getElementById(\''.self::$_trace_order.'-trace-box\').style.display=\'none\';document.getElementById(\''.self::$_trace_order.'-trace-show\').style.display=\'inline\';" style="color:#ccc;font-size:10px;">[hide]</span><span id="'.self::$_trace_order.'-trace-show" style="display:none;cusor:pointer;color:#ccc;font-size:10px;" onclick="this.style.display=\'none\';document.getElementById(\''.self::$_trace_order.'-trace-box\').style.display=\'block\';document.getElementById(\''.self::$_trace_order.'-trace-hide\').style.display=\'inline\';">[show]</span><span style="font-size:10px;"> ('.self::$_trace_order.') Debugging <font color="red" title="'.(isset($trace['file']) === true ? str_replace($path, '', $trace['file']) : 'eval').'">'.(isset($trace['file']) === true ? str_replace($path, '', $trace['file']) : 'eval').'</font> on line <font color="red">'.(isset($trace['line']) === true ? $trace['line'] : 'unknown').'</font> <span style="color:#555">@ '.date('d/m/Y H:i:s').'</span></span>: 
-<div id="'.self::$_trace_order.'-trace-box" style="background-color:#F0F0F0;color:#000;padding:5px;max-width:1000px;max-height:500px;overflow:auto;text-transform:none;">';
+<div id="'.self::$_trace_order.'-trace-box" style="background-color:#F0F0F0;color:#000;padding:5px;max-width:1000px;max-height:700px;overflow:auto;text-transform:none;">';
 
             if (is_string($var) === true)
             {

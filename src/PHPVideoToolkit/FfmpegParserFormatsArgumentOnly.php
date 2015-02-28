@@ -5,23 +5,18 @@
      *
      * @author Oliver Lillie (aka buggedcom) <publicmail@buggedcom.co.uk>
      * @license Dual licensed under MIT and GPLv2
-     * @copyright Copyright (c) 2008-2013 Oliver Lillie <http://www.buggedcom.co.uk>
+     * @copyright Copyright (c) 2008-2014 Oliver Lillie <http://www.buggedcom.co.uk>
      * @package PHPVideoToolkit V2
-     * @version 2.0.0.a
+     * @version 2.1.7-beta
      * @uses ffmpeg http://ffmpeg.sourceforge.net/
      */
      
-     namespace PHPVideoToolkit;
+    namespace PHPVideoToolkit;
      
     /**
-     * This class provides generic data parsing for the output from FFmpeg.
-     * Parts of the code borrow heavily from Jorrit Schippers version 
-     * of PHPVideoToolkit v 0.1.9.
-     *
-     * @access public
+     * Extends FfmpegParserAbstract using the arguments only method rather.
+     * 
      * @author Oliver Lillie
-     * @author Jorrit Schippers
-     * @package default
      */
     class FfmpegParserFormatsArgumentOnly extends FfmpegParserAbstract
     {
@@ -30,8 +25,9 @@
          *
          * @access public
          * @author Oliver Lillie
-         * @param boolean $read_from_cache 
-         * @return string
+         * @param boolean $read_from_cache If true and the data exists within a cache then that data is used. If false
+         *  then the data is re-read from ffmpeg.
+         * @return string Returns the raw buffer data from ffmpeg.
          */
         public function getRawCodecData($read_from_cache=true)
         {
@@ -43,8 +39,9 @@
          *
          * @access public
          * @author Oliver Lillie
-         * @param boolean $read_from_cache 
-         * @return string
+         * @param boolean $read_from_cache If true and the data exists within a cache then that data is used. If false
+         *  then the data is re-read from ffmpeg.
+         * @return string Returns the raw buffer data from ffmpeg.
          */
         public function getRawFiltersData($read_from_cache=true)
         {
@@ -56,8 +53,9 @@
          *
          * @access public
          * @author Oliver Lillie
-         * @param boolean $read_from_cache 
-         * @return string
+         * @param boolean $read_from_cache If true and the data exists within a cache then that data is used. If false
+         *  then the data is re-read from ffmpeg.
+         * @return string Returns the raw buffer data from ffmpeg.
          */
         public function getRawBitstreamFiltersData($read_from_cache=true)
         {
@@ -69,8 +67,9 @@
          *
          * @access public
          * @author Oliver Lillie
-         * @param boolean $read_from_cache 
-         * @return string
+         * @param boolean $read_from_cache If true and the data exists within a cache then that data is used. If false
+         *  then the data is re-read from ffmpeg.
+         * @return string Returns the raw buffer data from ffmpeg.
          */
         public function getRawProtocolsData($read_from_cache=true)
         {

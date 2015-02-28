@@ -5,21 +5,19 @@
      *
      * @author Oliver Lillie (aka buggedcom) <publicmail@buggedcom.co.uk>
      * @license Dual licensed under MIT and GPLv2
-     * @copyright Copyright (c) 2008-2013 Oliver Lillie <http://www.buggedcom.co.uk>
+     * @copyright Copyright (c) 2008-2014 Oliver Lillie <http://www.buggedcom.co.uk>
      * @package PHPVideoToolkit V2
-     * @version 2.0.0.a
+     * @version 2.1.7-beta
      * @uses ffmpeg http://ffmpeg.sourceforge.net/
      */
      
     namespace PHPVideoToolkit;
     
     /**
-     * Aids in the building of a Process.
-     * Ensipired by the ProcessBuilder bundled with Symphony Process component.
+     * Aids in locating server programmes if the paths are not hard set.
      *
-     * @access public
      * @author Oliver Lillie
-     * @package default
+     * @author Stig Bakken <ssb@php.net>
      */
     class Binary
     {
@@ -34,6 +32,8 @@
          * @static
          * @author Stig Bakken <ssb@php.net>
          * @author Oliver Lillie
+         * @throws \RuntimeException If it's not possible to guess the enviroment paths.
+         * @throws PHPVideoToolkit\BinaryLocateException If it is not possible to locate the specific programme.
          */
         public static function locate($program, $fallback=null)
         {
@@ -64,7 +64,7 @@
 //              if we have no path to guess with, throw exception.
                 if(empty($path) === true)
                 {
-                    throw new Exception('Unable to guess environment paths. Please set the absolute path to the program "'.$program.'"');
+                    throw new \RuntimeException('Unable to guess environment paths. Please set the absolute path to the program "'.$program.'"');
                 }
                 
                 $path_elements = explode(PATH_SEPARATOR, $path);
@@ -98,6 +98,6 @@
                 }
             }
             
-            throw new Exception('Unable to locate "'.$program.'"');
+            throw new BinaryLocateException('Unable to locate "'.$program.'"');
         }
     }

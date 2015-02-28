@@ -5,9 +5,9 @@
      *
      * @author Oliver Lillie (aka buggedcom) <publicmail@buggedcom.co.uk>
      * @license Dual licensed under MIT and GPLv2
-     * @copyright Copyright (c) 2008-2013 Oliver Lillie <http://www.buggedcom.co.uk>
+     * @copyright Copyright (c) 2008-2014 Oliver Lillie <http://www.buggedcom.co.uk>
      * @package PHPVideoToolkit V2
-     * @version 2.0.0.a
+     * @version 2.1.7-beta
      * @uses ffmpeg http://ffmpeg.sourceforge.net/
      */
      
@@ -37,7 +37,7 @@
 //          validate this media file is a video file
             if($ensure_video_file === true && $this->_validateMedia('video') === false)
             {
-                throw new Exception('You cannot use an instance of '.get_class($this).' for "'.$video_file_path.'" as the file is not a video file. It is reported to be a '.$type);
+                throw new \LogicException('You cannot use an instance of '.get_class($this).' for "'.$video_file_path.'" as the file is not a video file. It is reported to be a '.$type);
             }
             
             $this->_extracting_frames = false;
@@ -46,17 +46,9 @@
             $this->_extracting_audio = false;
         }
         
-        /**
-         * Returns the default (empty) input format for the type of media object this class is.
-         *
-         * @access public
-         * @author Oliver Lillie
-         * @param string $type Either input for an input format or output for an output format.
-         * @return Format
-         */
-        public function getDefaultFormat($type, $format)
+        public function getDefaultFormatClassName()
         {
-            return $this->_getDefaultFormat($type, 'VideoFormat', $format);
+            return 'VideoFormat';
         }
         
         public function extractAudio()
@@ -70,7 +62,7 @@
         {
             if($this->_extracting_frames === true)
             {
-                throw new Exception('You cannot extract multiple frames and then extract a single frame in the same execution chain.');
+                throw new \LogicException('You cannot extract multiple frames and then extract a single frame in the same execution chain.');
             }
             
             $this->extractSegment($timecode, $timecode);
@@ -83,14 +75,17 @@
         {
             if($this->_extracting_frame === true)
             {
-                throw new Exception('You cannot a single frame and then extract multiple frames in the same execution chain.');
+                throw new \LogicException('You cannot a single frame and then extract multiple frames in the same execution chain.');
             }
-            if($force_frame_rate !== null && is_int($force_frame_rate) === false && is_float($force_frame_rate) === false)
+            if($force_frame_rate !== null && is_int($force_frame_rate) === false && is_float($force_frame_rate) === false && (is_string($force_frame_rate) === true && preg_match('/[0-9]+\/[0-9]+/', $force_frame_rate) === 0))
             {
-                throw new Exception('If setting a forced frame rate please make sure it is either an integer or a float.');
+                throw new \InvalidArgumentException('If setting a forced frame rate please make sure it is either an integer, a float or a string in the "1/xxx" format (i.e. 1/60 = 1 frame every 60 seconds).');
             }
             
-            $this->extractSegment($from_timecode, $to_timecode);
+            if($from_timecode !== null || $to_timecode !== null)
+            {
+                $this->extractSegment($from_timecode, $to_timecode);
+            }
             $this->_extracting_frames = $force_frame_rate === null ? true : $force_frame_rate;
             
             return $this;
@@ -132,9 +127,9 @@
          * @param Format &$output_format 
          * @return void
          */
-        protected function _processOutputFormat(Format &$output_format=null, &$save_path)
+        protected function _processOutputFormat(Format &$output_format=null, &$save_path, $overwrite)
         {
-            parent::_processOutputFormat($output_format, $save_path);
+            parent::_processOutputFormat($output_format, $save_path, $overwrite);
             
 //          turn off the related options.
             if($this->_extracting_audio === true)
@@ -150,7 +145,7 @@
             $options = $output_format->getFormatOptions();
             if($options['disable_audio'] === true && $options['disable_video'] === true)
             {
-                throw new Exception('Unable to process output format to send to ffmpeg as both audio and video are disabled.');
+                throw new \LogicException('Unable to process output format to send to ffmpeg as both audio and video are disabled.');
             }
 
 //          process the frame extraction options onto the video output format.
@@ -160,13 +155,13 @@
                 if($options['video_frame_rate'] !== null && $options['video_frame_rate'] !== 1)
                 {
                     // TODO change to log a warning instead
-                    throw new Exception('You are attempting to extract a frame, however you have also specified a frame rate in the video output format. When extracting a frame you cannot set the frame rate of the output format. If you wish to extract multiple frames please use the extractFrames function instead.');
+                    throw new \LogicException('You are attempting to extract a frame, however you have also specified a frame rate in the video output format. When extracting a frame you cannot set the frame rate of the output format. If you wish to extract multiple frames please use the extractFrames function instead.');
                 }
 //              check for conflictions with a max frames setting
                 else if($options['video_frame_rate'] !== null && $options['video_frame_rate'] !== 1)
                 {
                     // TODO change to log a warning instead
-                    throw new Exception('You are attempting to extract a frame, however you have also specified a max frame limit in the video output format. When extracting a frame you cannot set the max frame limit of the output format. If you wish to extract multiple frames please use the extractFrames function instead.');
+                    throw new \LogicException('You are attempting to extract a frame, however you have also specified a max frame limit in the video output format. When extracting a frame you cannot set the max frame limit of the output format. If you wish to extract multiple frames please use the extractFrames function instead.');
                 }
                 
                 $output_format->setVideoFrameRate(1);
@@ -182,7 +177,7 @@
                     if($options['video_frame_rate'] !== null)
                     {
                         // TODO change to log a warning instead
-                        throw new Exception('You are attempting to extract multiple frames and force a frame rate, however you have also specified a frame rate in the video output format. When extracting multiple frames whilst specifying a forced frame rate you cannot set the frame rate of the output format.');
+                        throw new \LogicException('You are attempting to extract multiple frames and force a frame rate, however you have also specified a frame rate in the video output format. When extracting multiple frames whilst specifying a forced frame rate you cannot set the frame rate of the output format.');
                     }
                     
                     $output_format->setVideoFrameRate($this->_extracting_frames);
@@ -300,7 +295,7 @@
             $dimensions = $this->readDimensions();
             if(empty($dimensions) === true)
             {
-                throw new Exception('Unable to read the videos dimensions.');
+                throw new \RuntimeException('Unable to read the videos dimensions.');
             }
             
             $original_width = $dimensions['width'];

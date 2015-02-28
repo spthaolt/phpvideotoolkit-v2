@@ -5,13 +5,13 @@
      *
      * @author Oliver Lillie (aka buggedcom) <publicmail@buggedcom.co.uk>
      * @license Dual licensed under MIT and GPLv2
-     * @copyright Copyright (c) 2008-2013 Oliver Lillie <http://www.buggedcom.co.uk>
+     * @copyright Copyright (c) 2008-2014 Oliver Lillie <http://www.buggedcom.co.uk>
      * @package PHPVideoToolkit V2
-     * @version 2.0.0.a
+     * @version 2.1.7-beta
      * @uses ffmpeg http://ffmpeg.sourceforge.net/
      */
      
-     namespace PHPVideoToolkit;
+    namespace PHPVideoToolkit;
 
     /**
      * @access public
@@ -20,6 +20,10 @@
      */
     class ProgressHandlerNative extends ProgressHandlerAbstract
     {
+        protected $_progress_file;
+        protected $_input;
+        protected $_output;
+        
         public function __construct($callback=null, Config $config=null)
         {
 //          check that the "-progress" function is available.
@@ -33,10 +37,17 @@
             parent::__construct($callback, $config);
             
             $this->_progress_file = null;
+            $this->_input = null;
+            $this->_output = null;
         }
         
         protected function _getRawData()
         {
+            if(is_file($this->_progress_file) === false)
+            {
+                return '';
+            }
+
 //          there is a problem reading from the chunking file, so we must copy and then read, then delete the copy
 //          in order to succesfully read the data.
             $copy = $this->_progress_file.'.'.time().'.txt';
@@ -49,7 +60,32 @@
         protected function _parseOutputData(&$return_data, $raw_data)
         {
             $return_data['started'] = true;
+
+            $return_data['input_count'] = count($this->_input);
+            $return_data['input_file'] = $return_data['input_count'] === 1 ? $this->_input[0] : $this->_input;
+
+            $return_data['output_count'] = count($this->_output);
+            $return_data['output_file'] = $return_data['output_count'] === 1 ? $this->_output[0] : $this->_output;
+
+            if(empty($raw_data) === true)
+            {
+                if(empty($this->_last_probe_data) === true)
+                {
+                    $return_data['status'] = self::ENCODING_STATUS_PENDING;
+                }
+                else
+                {
+                    $return_data['percentage'] = 100;
+                    $return_data['finished'] = true;
+                    $return_data['status'] = self::ENCODING_STATUS_FINISHED;
+                }
+                return;
+            }
+
+            $return_data['status'] = self::ENCODING_STATUS_ENCODING;
             
+            $return_data['process_file'] = $this->_progress_file;
+
 //          parse out the details of the data into the seperate chunks.
             $parts = preg_split('/frame=/', $raw_data);
             array_shift($parts);
@@ -66,10 +102,12 @@
                 }
                 $parts[$key] = $data;
             }
-            
+
+            $ended = false;
             if(empty($parts) === false)
             {
                 $last_key = count($parts)-1;
+
                 $return_data['frame'] = $parts[$last_key]['frames'];
                 $return_data['fps'] = $parts[$last_key]['fps'];
                 $return_data['size'] = $parts[$last_key]['total_size'];
@@ -80,16 +118,19 @@
                     
                 if($parts[$last_key]['progress'] === 'end')
                 {
+                    $ended = true;
+                    $return_data['finished'] = true;
                     if($return_data['percentage'] < 99.5)
                     {
                         $return_data['interrupted'] = true;
+                        $return_data['status'] = self::ENCODING_STATUS_INTERRUPTED;
                     }
                     else
                     {
                         $return_data['percentage'] = 100;
                     }
                 }
-                    
+
 //              work out the fps average for performance reasons
                 if(count($parts) === 1)
                 {
@@ -105,13 +146,44 @@
                     $return_data['fps_avg'] = $total_fps/($last_key+1);
                 }
             }
+
+            if($ended === true)
+            {
+                $this->_deleteProgressFile();
+
+                $return_data['finished'] = true;
+                if($return_data['status'] !== self::ENCODING_STATUS_INTERRUPTED)
+                {
+                    $return_data['completed'] = true;
+                    $return_data['status'] = self::ENCODING_STATUS_FINISHED;
+                }
+            }
+            else if($return_data['percentage'] === 100)
+            {
+                $return_data['completed'] = true;
+                $return_data['status'] = self::ENCODING_STATUS_COMPLETED;
+            }
+            else if($return_data['percentage'] >= 99.5)
+            {
+                $return_data['percentage'] = 100;
+                $return_data['status'] = self::ENCODING_STATUS_FINALISING;
+            }
+
+            $this->_last_probe_data = $return_data;
+        }
+
+        protected function _deleteProgressFile()
+        {
+            @unlink($this->_progress_file);
         }
          
-        public function attachFfmpegProcess(FfmpegProcess $process, $temp_directory)
+        public function attachFfmpegProcess(FfmpegProcess $process, Config $config=null)
         {
-            parent::attachFfmpegProcess($process, $temp_directory);
+            parent::attachFfmpegProcess($process, $config);
 
-            $this->_progress_file = tempnam($this->_config->temp_directory, 'phpvideotoolkit_progress_');
+            $this->_progress_file = tempnam($this->_config->temp_directory, 'phpvideotoolkit_progress_'.time().'_');
+            $this->_input = $this->_ffmpeg_process->getAllInput();
+            $this->_output = $this->_ffmpeg_process->getAllOutput();
             $this->_ffmpeg_process->addCommand('-progress', $this->_progress_file);
         }
      }

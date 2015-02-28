@@ -5,13 +5,13 @@
      *
      * @author Oliver Lillie (aka buggedcom) <publicmail@buggedcom.co.uk>
      * @license Dual licensed under MIT and GPLv2
-     * @copyright Copyright (c) 2008-2013 Oliver Lillie <http://www.buggedcom.co.uk>
+     * @copyright Copyright (c) 2008-2014 Oliver Lillie <http://www.buggedcom.co.uk>
      * @package PHPVideoToolkit V2
-     * @version 2.0.0.a
+     * @version 2.1.7-beta
      * @uses ffmpeg http://ffmpeg.sourceforge.net/
      */
      
-     namespace PHPVideoToolkit;
+    namespace PHPVideoToolkit;
 
     /**
      * @access public
@@ -23,18 +23,25 @@
         protected $_post_process_qt_faststart;
         protected $_enforce_qt_faststart_success;
 
-        public function __construct($input_output_type, Config $config=null)
+        public function __construct($input_output_type=Format::OUTPUT, Config $config=null)
         {
             parent::__construct($input_output_type, $config);
             
             if($input_output_type === 'output')
             {
-                $this->setFormat('mp4');
+                $this->setFormat('mp4')
+                     ->setAudioCodec('aac');
             }
             
-//          both enable meta data injection and then force 
             $this->forceQtFastStartSuccess();
-            $this->enableQtFastStart();
+
+//          determine if we are using qtfaststart from the config object.
+//          remember doing so puts any save into blocking mode so if you are using ProgressHandlerPortable
+//          you must access the $process->getPortableId() before calling save or saveNonBlocking.
+            if($this->_config->force_enable_qtfaststart === true)
+            {
+                $this->enableQtFastStart();
+            }
         }
         
         public function enableQtFastStart()
@@ -57,9 +64,9 @@
             $this->_enforce_qt_faststart_success = true;
         }
 
-        public function updateFormatOptions(&$save_path)
+        public function updateFormatOptions(&$save_path, $overwrite)
         {
-            parent::updateFormatOptions($save_path);
+            parent::updateFormatOptions($save_path, $overwrite);
             
 //          assign a post process so that qt-faststart (https://ffmpeg.org/trac/ffmpeg/wiki/UbuntuCompilationGuide#qt-faststart) changes the qt atom to allow fast streaming.
             if($this->_post_process_qt_faststart === true)

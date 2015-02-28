@@ -5,13 +5,13 @@
      *
      * @author Oliver Lillie (aka buggedcom) <publicmail@buggedcom.co.uk>
      * @license Dual licensed under MIT and GPLv2
-     * @copyright Copyright (c) 2008-2013 Oliver Lillie <http://www.buggedcom.co.uk>
+     * @copyright Copyright (c) 2008-2014 Oliver Lillie <http://www.buggedcom.co.uk>
      * @package PHPVideoToolkit V2
-     * @version 2.0.0.a
+     * @version 2.1.7-beta
      * @uses ffmpeg http://ffmpeg.sourceforge.net/
      */
      
-     namespace PHPVideoToolkit;
+    namespace PHPVideoToolkit;
 
     /**
      * @access public
@@ -23,7 +23,7 @@
         protected $_post_process_meta_data_injection;
         protected $_enforce_meta_data_success;
         
-        public function __construct($input_output_type, Config $config=null)
+        public function __construct($input_output_type=Format::OUTPUT, Config $config=null)
         {
             parent::__construct($input_output_type, $config);
             
@@ -39,9 +39,15 @@
             $this->_restricted_video_codecs = array('flv1');
             $this->_restricted_audio_sample_frequencies = array(44100, 22050, 11025);
 
-//          both enable meta data injection and then force 
             $this->forceMetaDataInjectionSuccess();
-            $this->enableMetaDataInjection();
+
+//          determine if we are to inject meta data into the flv
+//          remember doing so puts any save into blocking mode so if you are using ProgressHandlerPortable
+//          you must access the $process->getPortableId() before calling save or saveNonBlocking.
+            if($this->_config && $this->_config->force_enable_flv_meta === true)
+            {
+                $this->enableMetaDataInjection();
+            }
         }
         
         public function enableMetaDataInjection()
@@ -64,9 +70,9 @@
             $this->_enforce_meta_data_success = true;
         }
         
-        public function updateFormatOptions(&$save_path)
+        public function updateFormatOptions(&$save_path, $overwrite)
         {
-            parent::updateFormatOptions($save_path);
+            parent::updateFormatOptions($save_path, $overwrite);
             
 //          ffmpeg moans about audio sample frequencies on videos that aren't one of the following
 //          audio sample rates. 44100, 22050, 11025

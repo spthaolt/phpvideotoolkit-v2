@@ -5,9 +5,9 @@
      *
      * @author Oliver Lillie (aka buggedcom) <publicmail@buggedcom.co.uk>
      * @license Dual licensed under MIT and GPLv2
-     * @copyright Copyright (c) 2008-2013 Oliver Lillie <http://www.buggedcom.co.uk>
+     * @copyright Copyright (c) 2008-2014 Oliver Lillie <http://www.buggedcom.co.uk>
      * @package PHPVideoToolkit V2
-     * @version 2.0.0.a
+     * @version 2.1.7-beta
      * @uses ffmpeg http://ffmpeg.sourceforge.net/
      */
      
@@ -20,25 +20,30 @@
      */
     abstract class CacheAbstract implements CacheInterface
     {
-        protected $_cache_object;
+        protected $_config;
+
+        protected $_key_prefix = 'phpvideotoolkit_v2';
         
-        private $_key_prefix = 'phpvideotoolkit_v2/';
-        
-        final public function __construct(CacheInterface $cache_object)
+        public function __construct(Config $config=null)
         {
-            $this->_cache_object = $cache_object;
+            $this->_config = $config === null ? Config::getInstance() : $config;
+            if($this->isAvailable() === false)
+            {
+                $class_name = get_class($this);
+                throw new Exception('The cache driver `'.substr($class_name, strrpos($class_name, '_')+1).'` is not available on your system.');
+            }
         }
         
-        final public function set($key, $value, $expiration=null)
+        public function set($key, $value, $expiration=null)
         {
             $this->_cache[$key] = $value;
             
-            return $this->_set($this->_key_prefix.$key, $value, $expiration);
+            return $this->_set($this->_key_prefix.'_'.$key, $value, $expiration);
         }
         
-        final public function get($key, $default_value=null)
+        public function get($key, $default_value=null)
         {
-            $key = $this->_key_prefix.$key;
+            $key = $this->_key_prefix.'_'.$key;
             
             if($this->_isMiss($key) === true)
             {
@@ -47,7 +52,11 @@
             return $this->_get($key);
         }
         
+        abstract public function isAvailable();
+
         abstract protected function _get($key);
+
         abstract protected function _isMiss($key);
+
         abstract protected function _set($key, $value, $expiration=null);
     }

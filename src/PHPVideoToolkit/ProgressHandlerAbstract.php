@@ -5,61 +5,63 @@
      *
      * @author Oliver Lillie (aka buggedcom) <publicmail@buggedcom.co.uk>
      * @license Dual licensed under MIT and GPLv2
-     * @copyright Copyright (c) 2008-2013 Oliver Lillie <http://www.buggedcom.co.uk>
+     * @copyright Copyright (c) 2008-2014 Oliver Lillie <http://www.buggedcom.co.uk>
      * @package PHPVideoToolkit V2
-     * @version 2.0.0.a
+     * @version 2.1.7-beta
      * @uses ffmpeg http://ffmpeg.sourceforge.net/
      */
      
-     namespace PHPVideoToolkit;
+    namespace PHPVideoToolkit;
 
     /**
      * @access public
      * @author Oliver Lillie
      * @package default
      */
-    abstract class ProgressHandlerAbstract
+    abstract class ProgressHandlerAbstract extends ProgressHandlerDefaultData
     {
         protected $_config;
         
-        protected $_is_non_blocking_comaptible = true;
+        protected $_is_non_blocking_compatible = true;
          
         protected $_ffmpeg_process;
         protected $_temp_directory;
         
         protected $_callback;
-        protected $_total_duration;
         
         private $_wait_on_next_probe;
         
+        protected $_last_probe_data;
+
         public $completed;
                  
         public function __construct($callback=null, Config $config=null)
         {
             if($callback !== null && is_callable($callback) === false)
             {
-                throw new Exception('The progress handler callback is not callable.');
+                throw new \InvalidArgumentException('The progress handler callback is not callable.');
             }
             
             $this->_config = $config === null ? Config::getInstance() : $config;
             
             $this->completed = null;
             $this->_callback = $callback;
-            $this->_total_duration = 0;
+            $this->_total_duration = null;
             $this->_ffmpeg_process = null;
             $this->_wait_on_next_probe = false;
+            $this->_last_probe_data = null;
             
 //          check to see if we have been supplied a callback, if so then it is no longer compatible 
 //          with a non blocking save.
             if($this->_callback !== null)
             {
-                $this->_is_non_blocking_comaptible = false;
+                $this->_is_non_blocking_compatible = false;
             }
         }
         
         public function getNonBlockingCompatibilityStatus()
         {
-            return $this->_is_non_blocking_comaptible;
+            return $this->_is_non_blocking_compatible;
         }
         
         public function setTotalDuration(Timecode $duration)
@@ -73,13 +75,13 @@
         {
             if($this->_wait_on_next_probe === true)
             {
-                if(is_int($seconds) === false)
+                if(is_int($seconds) === false && is_float($seconds) === false)
                 {
-                    throw new Exception('$seconds must be an integer.');
+                    throw new \InvalidArgumentException('$seconds must be an integer.');
                 }
                 else if($seconds <= 0)
                 {
-                    throw new Exception('$seconds must be an integer greater than 0.');
+                    throw new \InvalidArgumentException('$seconds must be an integer greater than 0.');
                 }
                 
                 usleep($seconds*100000);
@@ -95,42 +97,19 @@
             if(is_callable($this->_callback) === true)
             {
                 $data = $this->_processOutputFile();
-                call_user_func($this->_callback, $data, $output_object);
+                call_user_func($this->_callback, $data);
             }
         }
         
-        public function attachFfmpegProcess(FfmpegProcess $process, $process_temp_directory)
+        public function attachFfmpegProcess(FfmpegProcess $process, Config $config=null)
         {
-            if($this->_temp_directory === null)
+            if($config !== null)
             {
-                $this->setTempDirectory($process_temp_directory);
+                $this->_config = $config;
             }
             $this->_ffmpeg_process = $process;
         }
 
-        protected function _getDefaultData()
-        {
-            return array(
-                'interrupted'=> false,
-                'error'      => false,
-                'error_message' => null,
-                'started'    => false,
-                'finished'   => false,
-                'completed'  => false,
-                'run_time'   => 0,
-                'percentage' => 0,
-                'fps_avg'    => 0,
-                'size'       => 0,
-                'frame'      => 0,
-                'duration'   => 0,
-                'expected_duration' => $this->_total_duration,
-                'fps'        => 0,
-                'dup'        => 0,
-                'drop'       => 0,
-                'output_file'=> null,
-            );
-        }
-        
         protected function _processOutputFile()
         {
 //          setup the data to return.
@@ -140,31 +119,24 @@
 //          load up the data             
             $completed = false;
             $raw_data = $this->_getRawData();
+            
+//          parse the raw data into the return data
+            $this->_parseOutputData($return_data, $raw_data);
+            
             if(empty($raw_data) === false)
             {
-//              parse the raw data into the return data
-                $this->_parseOutputData($return_data, $raw_data);
-                
 //              check to see if the process has completed
                 if($return_data['percentage'] >= 100)
                 {
-                    $return_data['finished'] = true;
                     $return_data['percentage'] = 100;
-                    $return_data['output_file'] = $this->_ffmpeg_process->getOutputPath();
-                }
-//              or if it has been interuptted 
-                else if($return_data['interrupted'] === true)
-                {
                 }
             }
             
 //          check for any errors encountered by the parser
-            if($this->_checkOutputForErrors($return_data) === true)
-            {
-            }
+            $this->_checkOutputForErrors($return_data);
             
 //          has the process completed itself?
-            $this->completed = $this->_ffmpeg_process->isCompleted();
+            $this->completed = $return_data['finished'];
             
             return $return_data;
         }

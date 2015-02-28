@@ -5,13 +5,13 @@
      *
      * @author Oliver Lillie (aka buggedcom) <publicmail@buggedcom.co.uk>
      * @license Dual licensed under MIT and GPLv2
-     * @copyright Copyright (c) 2008-2013 Oliver Lillie <http://www.buggedcom.co.uk>
+     * @copyright Copyright (c) 2008-2014 Oliver Lillie <http://www.buggedcom.co.uk>
      * @package PHPVideoToolkit V2
-     * @version 2.0.0.a
+     * @version 2.1.7-beta
      * @uses ffmpeg http://ffmpeg.sourceforge.net/
      */
      
-     namespace PHPVideoToolkit;
+    namespace PHPVideoToolkit;
 
     /**
      * @access public
@@ -56,7 +56,7 @@
         protected $_restricted_video_pixel_formats;
         protected $_restricted_video_frame_rates;
 
-        public function __construct($input_output_type, Config $config=null)
+        public function __construct($input_output_type=Format::OUTPUT, Config $config=null)
         {
             parent::__construct($input_output_type, $config);
             
@@ -107,16 +107,29 @@
          * @author Oliver Lillie
          * @return void
          */
-        public function updateFormatOptions(&$save_path)
+        public function updateFormatOptions(&$save_path, $overwrite)
         {
-            parent::updateFormatOptions($save_path);
+            parent::updateFormatOptions($save_path, $overwrite);
+
+//          adjust the sample frequency if the audio codec is acc and frequency is not already set.
+            if(in_array($this->_format['audio_codec'], array('libfdk_aac', 'aac')) === true && $this->_format['audio_sample_frequency'] === null)
+            {
+                $this->setAudioSampleFrequency(22050);
+            }
             
+            $video_data = $this->_media_object->readVideoComponent();
+
+//          check to see if the aspect ratio has fixed the width and heights, if so we must apply the size to any output.
+            if($video_data['dimensions']['aspect_ratio_fix_warning'] === true)
+            {
+                $this->setVideoDimensions($video_data['dimensions']['width'], $video_data['dimensions']['height']);
+            }
+
 //          if we have a rotation and it's set to true then we must autodetect the rotation according to the
 //          meta data available.
 //          !IMPORTANT that auto orientation is done before any automatic flipping.
             if(empty($this->_format['video_rotation']) === false && $this->_format['video_rotation'] === true)
             {
-                $video_data = $this->_media_object->readVideoComponent();
                 if(empty($video_data['rotation']) === false)
                 {
                     $current_rotation = (int) $video_data['rotation'];
@@ -129,6 +142,21 @@
                 }
             }
             
+//          if the aspect ratio of the rotated video is not the same as the final video we must update the final outputs
+//          aspect ratio. However, we will only automatically do this if the aspect ratio is not already set.
+            if(in_array($this->_format['video_rotation'], array(1, 2)) === true && $this->_format['video_aspect_ratio'] === null)
+            {
+                $aspect_ratio = $video_data['display_aspect_ratio'];
+                if(preg_match('/^[0-9]+\.[0-9]+$/', $aspect_ratio, $_m) > 0)
+                {
+                    $this->setVideoAspectRatio(1/$aspect_ratio);
+                }
+                else if(preg_match('/^([0-9]+):([0-9]+)$/', $aspect_ratio, $matches) > 0)
+                {
+                    $this->setVideoAspectRatio($matches[2].':'.$matches[1]);
+                }
+            }
+
 //          if video padding has been set we might need to update the width/height dimensions of the pad filter
             if(empty($this->_format['video_padding']) === false)
             {
@@ -189,7 +217,7 @@
         {
             if($this->_type === 'input')
             {
-                throw new Exception('Video cannot be disabled on an input '.get_class($this).'.');
+                throw new \LogicException('Video cannot be disabled on an input '.get_class($this).'.');
             }
             
             $this->_format['disable_video'] = true;
@@ -252,7 +280,7 @@
 //          validate the video codecs that are available from ffmpeg.
             if(isset($codecs[$video_codec]) === false)
             {
-                throw new Exception('Unrecognised video codec "'.$video_codec.'" set in \\PHPVideoToolkit\\'.get_class($this).'::setVideoCodec');
+                throw new \InvalidArgumentException('Unrecognised video codec "'.$video_codec.'" set in \\PHPVideoToolkit\\'.get_class($this).'::setVideoCodec');
             }
             
 //          now check the class settings to see if restricted codecs have been set and have to be obeys
@@ -260,7 +288,7 @@
             {
                 if(in_array($video_codec, $this->_restricted_video_codecs) === false)
                 {
-                    throw new Exception('The video codec "'.$video_codec.'" cannot be set in \\PHPVideoToolkit\\'.get_class($this).'::setVideoCodec. Please select one of the following codecs: '.implode(', ', $this->_restricted_video_codecs));
+                    throw new \LogicException('The video codec "'.$video_codec.'" cannot be set in \\PHPVideoToolkit\\'.get_class($this).'::setVideoCodec. Please select one of the following codecs: '.implode(', ', $this->_restricted_video_codecs));
                 }
             }
             
@@ -279,7 +307,7 @@
          * @param string $force_aspect_ratio 
          * @return void
          */
-        public function setVideoDimensions($width, $height=null, $auto_adjust_dimensions_to_optimal=true, $force_aspect_ratio=false)
+        public function setVideoDimensions($width, $height=null, $auto_adjust_dimensions_to_optimal=false, $force_aspect_ratio=false)
         {
             if($width === null)
             {
@@ -488,9 +516,9 @@
             {
                 throw new Exception('Unrecognised frame rate "'.$frame_rate.'" set in \\PHPVideoToolkit\\'.get_class($this).'::setVideoFrameRate');
             }
-            else if(is_int($frame_rate) === false && is_float($frame_rate) === false)
+            else if(is_int($frame_rate) === false && is_float($frame_rate) === false && (is_string($frame_rate) === true && preg_match('/[0-9]+\/[0-9]+/', $frame_rate) === 0))
             {
-                throw new Exception('If setting frame rate please make sure it is either an integer or a float.');
+                throw new Exception('If setting a frame rate please make sure it is either an integer, a float or a string in the "1/n" format (i.e. 1/60 = 1 frame every 60 seconds).');
             }
             
 //          now check the class settings to see if restricted codecs have been set and have to be obeys
@@ -706,6 +734,8 @@
             {
                 $this->_format['video_flip_vertical'] = true;
             }
+
+            return $this;
         }
         
         /**
@@ -727,6 +757,8 @@
             {
                 $this->_format['video_flip_horizontal'] = true;
             }
+
+            return $this;
         }
         
     }

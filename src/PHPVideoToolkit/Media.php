@@ -5,9 +5,9 @@
      *
      * @author Oliver Lillie (aka buggedcom) <publicmail@buggedcom.co.uk>
      * @license Dual licensed under MIT and GPLv2
-     * @copyright Copyright (c) 2008-2013 Oliver Lillie <http://www.buggedcom.co.uk>
+     * @copyright Copyright (c) 2008-2014 Oliver Lillie <http://www.buggedcom.co.uk>
      * @package PHPVideoToolkit V2
-     * @version 2.0.0.a
+     * @version 2.1.7-beta
      * @uses ffmpeg http://ffmpeg.sourceforge.net/
      */
      
@@ -55,6 +55,8 @@
         
         protected $_process;
 
+        protected $_ignore_format;
+
         /**
          * Constructs a media object.
          *
@@ -87,6 +89,8 @@
             $this->_blocking = null;
             
             $this->_require_d_in_output = false;
+
+            $this->_ignore_format = false;
             
             // @see http://multimedia.cx/eggs/supplying-ffmpeg-with-metadata/
             // @see http://wiki.multimedia.cx/index.php?title=FFmpeg_Metadata
@@ -115,7 +119,7 @@
             
             $this->_process = new FfmpegProcessProgressable('ffmpeg', $this->_config);
         }
-        
+
         protected function _validateMedia($media_type)
         {
             $type = $this->readType();
@@ -143,7 +147,7 @@
                     $format = Extensions::toBestGuessFormat($ext);
                 }
                 
-                $this->_media_input_format = $this->getDefaultFormat('input', $format);
+                $this->_media_input_format = $this->getDefaultFormat(Format::INPUT, $format);
             }
             else
             {
@@ -165,6 +169,11 @@
             return $this->_media_input_format;
         }
 
+        public function getDefaultFormatClassName()
+        {
+            return 'Format';
+        }
+
         /**
          * Returns the default (empty) input format for the type of media object this class is.
          *
@@ -173,10 +182,10 @@
          * @param string $type Either input for an input format or output for an output format.
          * @return Format
          */
-        public function getDefaultFormat($type, $format)
+        public function getDefaultFormat($type, $format=null)
         {
             // $format is purposely ignored
-            return $this->_getDefaultFormat($type, 'Format', null);
+            return $this->_getDefaultFormat($type, $this->getDefaultFormatClassName(), null);
         }
         
         /**
@@ -191,9 +200,9 @@
         protected function _getDefaultFormat($type, $default_class_name, $format)
         {
             // TODO replace with reference to Format::getFormatFor
-            if(in_array($type, array('input', 'output')) === false)
+            if(in_array($type, array(Format::OUTPUT, Format::INPUT)) === false)
             {
-                throw new Exception('Unrecognised format type "'.$type.'".');
+                throw new \InvalidArgumentException('Unrecognised format type "'.$type.'".');
             }
             
 //          check the requested class exists
@@ -204,14 +213,14 @@
                 $class_name = '\\PHPVideoToolkit\\'.$default_class_name;
                 if(class_exists($class_name) === false)
                 {
-                    throw new Exception('Requested default format class does not exist, "'.($requested_class_name === $class_name ? $class_name : $requested_class_name.'" and "'.$class_name.'"').'".');
+                    throw new \InvalidArgumentException('Requested default format class does not exist, "'.($requested_class_name === $class_name ? $class_name : $requested_class_name.'" and "'.$class_name.'"').'".');
                 }
             }
             
 //          check that it extends from the base Format class.
             if($class_name !== '\\PHPVideoToolkit\\Format' && is_subclass_of($class_name, '\\PHPVideoToolkit\\Format') === false)
             {
-                throw new Exception('The class "'.$class_name.'" is not a subclass of \\PHPVideoToolkit\\Format.');
+                throw new \InvalidArgumentException('The class "'.$class_name.'" is not a subclass of \\PHPVideoToolkit\\Format.');
             }
             
             return new $class_name($type, $this->_config);
@@ -242,11 +251,11 @@
                 
             if($real_file_path === false || is_file($real_file_path) === false)
             {
-                throw new Exception('The file "'.$media_file_path.'" cannot be found in \\PHPVideoToolkit\\Media::__construct.');
+                throw new \InvalidArgumentException('The file "'.$media_file_path.'" cannot be found in \\PHPVideoToolkit\\Media::__construct.');
             }
             else if(is_readable($real_file_path) === false)
             {
-                throw new Exception('The file "'.$media_file_path.'" is not readable in \\PHPVideoToolkit\\Media::__construct.');
+                throw new \InvalidArgumentException('The file "'.$media_file_path.'" is not readable in \\PHPVideoToolkit\\Media::__construct.');
             }
             
             $this->_media_file_path = $real_file_path;
@@ -278,7 +287,7 @@
             
             if(empty($key) === true)
             {
-                throw new Exception('Empty metadata key. Metadata keys must be at least one character long.');
+                throw new \InvalidArgumentException('Empty metadata key. Metadata keys must be at least one character long.');
             }
             
 //          check that meta key is supported by this format.
@@ -331,25 +340,25 @@
 //          check that a segment extract has not already been set
             if(empty($this->_extract_segment) === false)
             {
-                throw new Exception('Extract segment options have already been set. You cannot call extractSegment more than once on a '.get_class($this).' object.');
+                throw new \LogicException('Extract segment options have already been set. You cannot call extractSegment more than once on a '.get_class($this).' object.');
             }
             
 //          check that a split has already been set as if it has we can't extract a segment
 //          however we can extract a segment, then split it.
             if(empty($this->_split_options) === false)
             {
-                throw new Exception('You cannot extract a segment once '.get_class($this).'::split has been called. You can however extract a segment, the call '.get_class($this).'::split.');
+                throw new \LogicException('You cannot extract a segment once '.get_class($this).'::split has been called. You can however extract a segment, the call '.get_class($this).'::split.');
             }
             
 //          check the timecodes against the duration
             $duration = $this->readDuration();
             if($from_timecode !== null && $duration->total_seconds < $from_timecode->total_seconds)
             {
-                throw new Exception('The duration of the media is less than the starting timecode specified.');
+                throw new \InvalidArgumentException('The duration of the media is less than the starting timecode specified.');
             }
             else if($to_timecode !== null && $duration->total_seconds < $to_timecode->total_seconds)
             {
-                throw new Exception('The duration of the media is less than the end timecode specified.');
+                throw new \InvalidArgumentException('The duration of the media is less than the end timecode specified.');
             }
             
             $this->_extract_segment = array(
@@ -425,7 +434,7 @@
 //          check to see if split options are already set
             if(empty($this->_split_options) === false)
             {
-                throw new Exception('Split options have already been set. You cannot call split more than once on a '.get_class($this).' object.');
+                throw new \LogicException('Split options have already been set. You cannot call split more than once on a '.get_class($this).' object.');
             }
             
             $this->_split_options = array();
@@ -434,7 +443,7 @@
 //          check the split by
             if(empty($split_by) === true)
             {
-                throw new Exception('The split by value is empty, in \\PHPVideoToolkit\\'.get_class($this).'::split');
+                throw new \InvalidArgumentException('The split by value is empty, in \\PHPVideoToolkit\\'.get_class($this).'::split');
             }
 //          if we have an array, it's either timecodes (seconds) or integers (frames)
             else if(is_array($split_by) === true)
@@ -447,14 +456,14 @@
                     {
                         if(get_class($timecode) !== 'PHPVideoToolkit\Timecode')
                         {
-                            throw new Exception('The split by timecode specified in index '.$key.' is not a \\PHPVideoToolkit\\Timecode object.');
+                            throw new \InvalidArgumentException('The split by timecode specified in index '.$key.' is not a \\PHPVideoToolkit\\Timecode object.');
                         }
                         
 //                      check the timecode against the total number of seconds in the media duration.
                         $seconds = $timecode->total_seconds;
                         if($seconds > $duration->total_seconds)
                         {
-                            throw new Exception('The split by timecode specified in index '.$key.' is greater than the duration of the media ('.$duration->total_seconds.' seconds).');
+                            throw new \InvalidArgumentException('The split by timecode specified in index '.$key.' is greater than the duration of the media ('.$duration->total_seconds.' seconds).');
                         }
                         
                         array_push($times, $seconds);
@@ -470,7 +479,7 @@
                     {
                         if(is_int($integer) === false)
                         {
-                            throw new Exception('The split by frame number specified in index '.$key.' is not an integer.');
+                            throw new \InvalidArgumentException('The split by frame number specified in index '.$key.' is not an integer.');
                         }
                         
                         
@@ -493,13 +502,13 @@
             {
                 if($split_by < 1)
                 {
-                    throw new Exception('The split by value must be >= 1, in \\PHPVideoToolkit\\'.get_class($this).'::split');
+                    throw new \InvalidArgumentException('The split by value must be >= 1, in \\PHPVideoToolkit\\'.get_class($this).'::split');
                 }
                         
 //              check the split time against the total number of seconds in the media duration.
                 if($split_by > $duration->total_seconds)
                 {
-                    throw new Exception('The split by value is greater than the duration of the media ('.$duration->total_seconds.' seconds).');
+                    throw new \InvalidArgumentException('The split by value is greater than the duration of the media ('.$duration->total_seconds.' seconds).');
                 }
                         
                 $this->_split_options['segment_time'] = (int) $split_by;
@@ -508,7 +517,7 @@
 //          check time delta
             if($time_delta < 0)
             {
-                throw new Exception('The time delta specified "'.$time_delta.'", in \\PHPVideoToolkit\\'.get_class($this).'::split must be >= 0');
+                throw new \InvalidArgumentException('The time delta specified "'.$time_delta.'", in \\PHPVideoToolkit\\'.get_class($this).'::split must be >= 0');
             }
             else if($time_delta > 0)
             {
@@ -522,11 +531,11 @@
                 $output_list_dir = dirname($output_list);
                 if(is_dir($output_list_dir) === false)
                 {
-                    throw new Exception('The directory for the output list file "'.$output_list_path.'" does not exist, in \\PHPVideoToolkit\\'.get_class($this).'::split');
+                    throw new \InvalidArgumentException('The directory for the output list file "'.$output_list_path.'" does not exist, in \\PHPVideoToolkit\\'.get_class($this).'::split');
                 }
                 else if(is_writeable($output_list_dir) === false)
                 {
-                    throw new Exception('The directory for the output list file "'.$output_list_path.'" is not writeable, in \\PHPVideoToolkit\\'.get_class($this).'::split');
+                    throw new \InvalidArgumentException('The directory for the output list file "'.$output_list_path.'" is not writeable, in \\PHPVideoToolkit\\'.get_class($this).'::split');
                 }
                 
                 $this->_split_options['segment_list'] = $output_list_path;
@@ -580,7 +589,7 @@
                     }
                     if(empty($this->_extract_segment['seek']) === false)
                     {
-                        $duration_seconds -= $this->_extract_segment['preseek']->total_seconds;
+                        $duration_seconds -= $this->_extract_segment['seek']->total_seconds;
                     }
                 }
                 
@@ -598,6 +607,19 @@
             
             return $duration;
         }
+
+        /**
+         * Returns a string value of a portable identifier used in conjunction with ProgressHandlerPortable.
+         * WARNING. If this function is called it automatically disables the garbage collection of the ExceBuffer.
+         *
+         * @access public
+         * @author Oliver Lillie
+         * @return string
+         */
+        public function getPortableId()
+        {
+            return $this->_process->getPortableId().'.'.$this->getEstimatedFinalDuration()->total_seconds;
+        }
         
         /**
          * Registers an output post process function, that is called after output has been generated.
@@ -609,13 +631,17 @@
          * @param Function $callback 
          * @return self
          */
-        public function registerOutputPostProcess($callback)
+        public function registerOutputPostProcess($callback, $args=array())
         {
             if(is_callable($callback) === false)
             {
-                throw new Exception('The callback "'.$callback.'" is not callable.');
+                throw new \InvalidArgumentException('The callback "'.$callback.'" is not callable.');
             }
-            array_push($this->_post_process_callbacks, $callback);
+            if(is_array($args) === false)
+            {
+                throw new \InvalidArgumentException('The $args argument is not an array.');
+            }
+            array_push($this->_post_process_callbacks, array($callback, $args));
 
 //          if a callback has been supplied then the process becomes blocking and must be set.      
             $this->_blocking = true;
@@ -631,17 +657,42 @@
          * @author Oliver Lillie
          * @return mixed
          */
-        public function _postProcessOutput($output, $process)
+        public function _postProcessOutput(FfmpegProcess $process)
         {
+            $output = $process->completeProcess();
             if(empty($this->_post_process_callbacks) === false)
             {
                 foreach ($this->_post_process_callbacks as $callback)
                 {
-                    $output = call_user_func($callback, $output, $this);
+                    $args = $callback[1];
+                    array_unshift($args, $output, $this);
+                    $output = call_user_func_array($callback[0], $args);
                 }
             }
-            
+
             return $output;
+        }
+
+        /**
+         * Converts a string path and output format into a MultiOutput object.
+         *
+         * @access protected
+         * @author Oliver Lillie
+         * @param  string $save_path The string based path of a MultiObject.
+         * @param  Format $output_format An output format object.
+         * @return MultiObject
+         */
+        protected function _convertOutputPathToMultiOutput($save_path=null, Format $output_format=null)
+        {
+            $class = 'PHPVideoToolkit\MultiOutput'; // prevents unneccesary autoload.
+            if($save_path instanceof $class === true)
+            {
+                return $save_path;
+            }
+            $multi_output = new MultiOutput($this->_config);
+            $multi_output->setDefaultOutputFormat($this->getDefaultFormatClassName());
+            $multi_output->addOutput($save_path, $output_format);
+            return $multi_output;
         }
         
         /**
@@ -651,19 +702,46 @@
          *
          * @access public
          * @author Oliver Lillie
-         * @param string $save_path 
-         * @param Format $output_format 
-         * @param string $overwrite 
-         * @param ProgressHandlerAbstract $progress_handler
+         * @param MultiOutput $save_path If a string then it is treated as a single output and the argument is the output path
+         *  of the generated file, otherwise if a PHPVideoToolkit\MultiOutput object is given then we treat the output
+         *  as multiple output.
+         * @param Format $output_format It is the output format for the saved file.
+         * @param string $overwrite One of the following constants determining the overwrite status of the save.
+         *  Media::OVERWRITE_FAIL - the save call will fail with an excetion if the save path already exists.
+         *  Media::OVERWRITE_EXISTING - the save call will overwrite any existing file with the same name.
+         *  Media::OVERWRITE_UNIQUE - the save call will augment the save path with a unique hash so that if a file with
+         *      the same name exists then there is no overwrite.
+         * @param ProgressHandlerAbstract $progress_handler The progress handler object to supply to the save process.
          * @return mixed If the blocking mode of the process is set to block, the it returns a new 
          *  Media object on a successfull completion, otherwise an exception is thrown. If the blocking
          *  mode is non blocking then the underlying FfmpegProcess is returned.
          */
         public function save($save_path=null, Format $output_format=null, $overwrite=Media::OVERWRITE_FAIL, ProgressHandlerAbstract &$progress_handler=null)
         {
-//          pre process all of the common functionality and pre process the output format.
-            $this->_savePreProcess($output_format, $save_path, $overwrite, $progress_handler);
-            
+//          set the input files.
+            $this->_process->setInputPath($this->_media_file_path);
+
+//          loop and process the save path to multioutput so we can loop
+            $multi_output = $this->_convertOutputPathToMultiOutput($save_path, $output_format);
+            $index = 0;
+            foreach ($multi_output as $save_path => $output_format)
+            {
+//              increment the output index so the process moves on to the next process to build if the loop continues.
+                $this->_process->setOutputIndex($index);
+                $index += 1;
+
+//              pre process all of the common functionality and pre process the output format.
+                $this->_savePreProcess($output_format, $save_path, $overwrite);
+
+//              add the commands from the output format to the exec buffer
+//              NOTE; this cannot be done in _savePreProcess as it must be done after, to ensure all the subclass
+//              _savePreProcess functionality and main media class functionality is properly executed.
+                $this->_saveAddOutputFormatCommands($output_format);
+
+//              update the output path as the processing path?
+                $this->_process->setOutputPath($this->_processing_path);
+            }
+
 //          set the progress handler 
             if($progress_handler !== null)
             {
@@ -671,27 +749,40 @@
                 $this->_process->attachProgressHandler($progress_handler);
             }
             
-//          add the commands from the output format to the exec buffer
-//          NOTE; this cannot be done in _savePreProcess as it must be done after, to ensure all the subclass
-//          _savePreProcess functionality and main media class functionality is properly executed.
-            $this->_saveAddOutputFormatCommands($output_format);
-
-//          set the processing output path
 //          exec the buffer
 //          set the blocking mode
 //          and execute the ffmpeg process.
-            $this->_process->setOutputPath($this->_processing_path)
-                           ->getExecBuffer()
-                           ->setBlocking($this->_blocking === null ? true : $this->_blocking)
-                           ->execute();
-            
-//          now we work out what we are returning as it depends on the blocking status.
-            if($this->_blocking === true)
+            $buffer = $this->_process->setOutputPath($this->_processing_path)
+                                     ->getExecBuffer()
+                                     ->setBlocking($this->_blocking === null ? true : $this->_blocking);
+
+            $process = $this->_process;
+            $callback = array($this, '_postProcessOutput');
+            $buffer->registerCompletionCallback(
+                function() use ($callback, $process)
+                {
+                    call_user_func($callback, $process);
+                }
+            );
+
+            if($progress_handler !== null && $progress_handler->getNonBlockingCompatibilityStatus() === false)
             {
-                return $this->_process->getOutput(array($this, '_postProcessOutput'));
+                $buffer->execute(
+                    function($exec_buffer, $null, $completed) use ($progress_handler, $callback, $process)
+                    {
+                        if($progress_handler !== null)
+                        {
+                            $progress_handler->callback();
+                        }
+                    }
+                );
             }
-            
-//          just return the process if the process is non blocking.
+            else
+            {
+                $buffer->execute();
+            }
+
+//          just return the process if the process
             return $this->_process;
         }
         
@@ -701,9 +792,9 @@
          * will IMMEDIATELY continue. PHP will continue, in all likelyhood, exit before the ffmpeg has
          * completed the transcoding of any output.
          *
-         * If you need to monitor the output for completion or processing then you can supplied a Processor
-         * object that will setup monitoring dependant on which processor is supplied.
-         *
+         * If you need to monitor the output for completion or processing then you can supplied a progress handler to
+         * return information about the process.
+         * 
          * @access public
          * @author Oliver Lillie
          * @param string $save_path 
@@ -719,7 +810,7 @@
 //          non-blocking and must trigger error.
             if($this->_blocking === true)
             {
-                throw new Exception('The blocking mode has been enabled by a function that you have enabled, or a Format that you have supplied. As a result you cannot use saveNonBlocking() and must use the blocking save method save() instead.');
+                throw new \LogicException('The blocking mode has been enabled by a function that you have enabled, or a Format that you have supplied. As a result you cannot use saveNonBlocking() and must use the blocking save method save() instead.');
             }
             
 //          set the non blocking of the exec process
@@ -731,7 +822,7 @@
 //              because only certain types of handlers are compatible with non blocking saves we need to check for compatibility.
                 if($progress_handler->getNonBlockingCompatibilityStatus() === false)
                 {
-                    throw new Exception('The progress handler given is not compatible with a non blocking save. This typically means that you have supplied a callback function in the constructor of the progress handler. Any progress handler with a supplied callback blocks PHP. Instead you should call $handler->probe() after the saveNonBlocking function call to get the progress of the encode.');
+                    throw new \LogicException('The progress handler given is not compatible with a non blocking save. This typically means that you have supplied a callback function in the constructor of the progress handler. Any progress handler with a supplied callback blocks PHP. Instead you should call $handler->probe() after the saveNonBlocking function call to get the progress of the encode.');
                 }
             }
             
@@ -747,10 +838,9 @@
          * @param Format $output_format 
          * @param string $save_path 
          * @param string $overwrite 
-         * @param ProgressHandlerAbstract $progress_handler 
          * @return void
          */
-        protected function _savePreProcess(Format &$output_format=null, &$save_path, $overwrite, ProgressHandlerAbstract &$progress_handler=null)
+        protected function _savePreProcess(Format &$output_format=null, &$save_path, $overwrite)
         {
 //          do some processing on the input format
             // $this->_processInputFormat();
@@ -763,7 +853,7 @@
             }
             
 //          do some pre processing of the output format
-            $this->_processOutputFormat($output_format, $save_path);
+            $this->_processOutputFormat($output_format, $save_path, $overwrite);
 
 //          check the save path.
             $has_timecode_or_index = false;
@@ -774,17 +864,17 @@
             $save_dir = realpath($save_dir);
             if($save_dir === false || is_dir($save_dir) === false)
             {
-                throw new Exception('The directory that the output is to be saved to, "'.$save_dir.'" does not exist.');
+                throw new \InvalidArgumentException('The directory that the output is to be saved to, "'.$save_dir.'" does not exist.');
             }
             else if(is_writeable($save_dir) === false || is_readable($save_dir) === false)
             {
-                throw new Exception('The directory that the output is to be saved to, "'.$save_dir.'" is not read-writeable.');
+                throw new \RuntimeException('The directory that the output is to be saved to, "'.$save_dir.'" is not read-writeable.');
             }
 //          check to see if we have a split output name.
 //          although this is technically still allowed by ffmpeg, phpvideotoolkit has depreciated %d in favour of its own %index
             else if(preg_match('/\%([0-9]*)d/', $save_path) > 0)
             {
-                throw new Exception('The output file appears to be using FFmpeg\'s %d notation for multiple file output. The %d notation is depreciated in PHPVideoToolkit in favour of the %index or %timecode notations.');
+                throw new \InvalidArgumentException('The output file appears to be using FFmpeg\'s %d notation for multiple file output. The %d notation is depreciated in PHPVideoToolkit in favour of the %index or %timecode notations.');
             }
 //          if a %index or %timecode output is added then we can't check for exact file existence
 //          we can however check for possible interfering matches.
@@ -796,46 +886,45 @@
 //          check to see if we have to have a timecode or index in the output and that we actually have one.
             else if($has_timecode_or_index === false && $this->_require_d_in_output === true)
             {
-                throw new Exception('It is required that either "%timecode" or "%index" to the save path as more that one file is expected be outputed. When using %index, it is possible to specify a number to be padded with a specific amount of 0s. For example adding %5index.jpg will output files like 00001.jpg, 00002.jpg etc.');
+                throw new \InvalidArgumentException('It is required that either "%timecode" or "%index" to the save path as more that one file is expected be outputed. When using %index, it is possible to specify a number to be padded with a specific amount of 0s. For example adding %5index.jpg will output files like 00001.jpg, 00002.jpg etc.');
             }
 //          otherwise check that a file exists and the overrwite status of the request.
             else
             {
                 if(is_file($save_dir.DIRECTORY_SEPARATOR.$basename) === true && (empty($overwrite) === true || $overwrite === self::OVERWRITE_FAIL))
                 {
-                    throw new Exception('The output file already exists and overwriting is disabled.');
+                    throw new \LogicException('The output file already exists and overwriting is disabled.');
                 }
                 else if(is_file($save_dir.DIRECTORY_SEPARATOR.$basename) === true && $overwrite === self::OVERWRITE_EXISTING && is_writeable($save_dir.DIRECTORY_SEPARATOR.$basename) === false)
                 {
-                    throw new Exception('The output file already exists, overwriting is enabled however the file is not writable.');
+                    throw new \LogicException('The output file already exists, overwriting is enabled however the file is not writable.');
                 }
             }
             $save_path = $save_dir.DIRECTORY_SEPARATOR.$basename;
             
-//          check for a regonised output format, and if one is not supplied
+//          check for a recognised output format, and if one is not supplied
 //          then check the a the format has been set in the output format, if not through an error and exit
+            $format = false;
             $ext = pathinfo($save_path, PATHINFO_EXTENSION);
-            if(empty($ext) === true)
-            {
-//              get the output commands and augment with the final output options.
-                $options = $output_format->getFormatOptions();
-                if(empty($options['format']) === true)
-                {
-                    throw new Exception('The save path supplied does not have an extension and you have not supplied an output format. Please either add a file extension to the save path or call setFormat() on the output format.');
-                }
-            }
-            else
+            if(empty($ext) === false)
             {
 //              check we have a format we know about.
                 $format = Extensions::toBestGuessFormat($ext);
-                if(empty($format) === true)
+            }
+
+//          if we still don't have a format, check from the output format.
+            if(!$format)
+            {
+                $options = $output_format->getFormatOptions();
+                if(isset($options['format']) === false || empty($options['format']) === true)
                 {
-                    throw new Exception('Un-recognised file extension. Please call setFormat() on the output format to set the format of the output media.');
+                    if(empty($ext) === true)
+                    {
+                        throw new \LogicException('The output path of the file extension has not be given. Please either set a file extension of the output path - or - call setFormat() on the output format to set the format of the output media.');
+                    }
+                    throw new \LogicException('Un-recognised file extension. Please call setFormat() on the output format to set the format of the output media.');
                 }
             }
-            
-//          set the input files.
-            $this->_process->setInputPath($this->_media_file_path);
             
 //          process the overwrite status
             switch($overwrite)
@@ -849,6 +938,11 @@
                     $pathinfo = pathinfo($save_path);
                     $save_path = $pathinfo['dirname'].DIRECTORY_SEPARATOR.$pathinfo['filename'].'-u_'.String::generateRandomString().'.'.$pathinfo['extension'];
                     break;
+
+//              this is purely in case the media object is "re-used", as if the command is already been set to overwrite
+//              but the subsequent save is not, we must remove any previous command so we don't get unwanted overwrites.
+                default : 
+                    $this->_process->removeCommand('-y');
             }
             $this->_output_path = 
             $this->_processing_path = $save_path;
@@ -903,9 +997,10 @@
 //              get the output commands and augment with the final output options.
                 $options = $output_format->getFormatOptions();
 
-//              set the split format if an output format has already been set.
+//              set the split format if an output format has already been set. and remove from the output format so that multiple "-f" formats are not given to the buffer
                 if(empty($options['format']) === false)
                 {
+                    $this->_ignore_format = true;
                     $this->_process->addCommand('-segment_format', $options['format']);
                 }
                 
@@ -932,12 +1027,33 @@
 //                  we build the timecode and frame rate data into the output if we use %timecode
 //                  that way we can always reconstruct the timecode even from another script or process.
                     
-//                  get the frame rate of the export.
-                    $frame_rate = $this->_process->getCommand('-r');
-                    if($frame_rate === false)
+//                  get the frame rate of the export. we give priority to "-r" as this is the output of the object if already set somewhere,
+//                  otherwise we revert to the output format setting,
+//                  then fallback to the to the framerate of the current video component
+                    if(($frame_rate = $this->_process->getCommand('-r')) === false)
                     {
-                        $data = $this->readVideoComponent();
-                        $frame_rate = $data['frames']['rate'];
+                        $options = $output_format->getFormatOptions();
+                        if(empty($options['video_frame_rate']) === false)
+                        {
+                            $frame_rate = $options['video_frame_rate'];
+                        }
+                        else
+                        {
+                            $data = $this->readVideoComponent();
+                            if(isset($data['frames']) === true && isset($data['frames']['rate']) === true)
+                            {
+                                $frame_rate = $data['frames']['rate'];
+                            }
+                        }
+                    }
+                    if($frame_rate <= 0)
+                    {
+                        throw new \RuntimeException('Unable to access the output frame rate value and as a result we cannot generate a timecode based filename output.');
+                    }
+                    else if(preg_match('/[0-9]+\/[0-9]+/', $frame_rate) > 0)
+                    {
+                        $frame_rate = explode('/', $frame_rate);
+                        $frame_rate = $frame_rate[0]/$frame_rate[1];
                     }
                     
 //                  get the starting offset of the export
@@ -977,7 +1093,7 @@
          * @param Format &$output_format 
          * @return void
          */
-        protected function _processOutputFormat(Format &$output_format=null, &$save_path)
+        protected function _processOutputFormat(Format &$output_format=null, &$save_path, $overwrite)
         {
 //          check to see if we have been set and output format, if not generate an empty one.
             if($output_format === null)
@@ -988,13 +1104,13 @@
                 {
                     $format = Extensions::toBestGuessFormat($ext);
                 }
-                $output_format = $this->getDefaultFormat('output', $format);
+                $output_format = $this->getDefaultFormat(Format::OUTPUT, $format);
             }
             
 //          set the media into the format object so that we can update the format options that
 //          require a media object to process.
             $output_format->setMedia($this)
-                          ->updateFormatOptions($save_path);
+                          ->updateFormatOptions($save_path, $overwrite);
         }
         
         /**
@@ -1012,7 +1128,16 @@
                 $commands = $output_format->getCommandsHash();
                 if(empty($commands) === false)
                 {
-                    $this->_process->addCommands($commands);
+                    foreach ($commands as $key => $value)
+                    {
+                        // this is a special consideration as if the format is being segmented then any output
+                        // format must be ignored as it is already being set to -segment_format.
+                        if($this->_ignore_format === true && $key === '-f')
+                        {
+                            continue;
+                        }
+                        $this->_process->addCommand($key, $value);
+                    }
                 }
             }
         }
